@@ -58,8 +58,8 @@ def construct_dataloaders(dataset, defs, data_path='~/data', shuffle=True, norma
 def _build_cifar10(data_path, augmentations=True, normalize=True):
     """Define CIFAR-10 with everything considered."""
     # Load data
-    trainset = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transforms.ToTensor())
-    validset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transforms.ToTensor())
+    trainset = torchvision.datasets.CIFAR10(root=data_path, train=True, download=False, transform=transforms.ToTensor())
+    validset = torchvision.datasets.CIFAR10(root=data_path, train=False, download=False, transform=transforms.ToTensor())
 
     if cifar10_mean is None:
         data_mean, data_std = _get_meanstd(trainset)
@@ -85,8 +85,8 @@ def _build_cifar10(data_path, augmentations=True, normalize=True):
 def _build_cifar100(data_path, augmentations=True, normalize=True):
     """Define CIFAR-100 with everything considered."""
     # Load data
-    trainset = torchvision.datasets.CIFAR100(root=data_path, train=True, download=True, transform=transforms.ToTensor())
-    validset = torchvision.datasets.CIFAR100(root=data_path, train=False, download=True, transform=transforms.ToTensor())
+    trainset = torchvision.datasets.CIFAR100(root=data_path, train=True, download=False, transform=transforms.ToTensor())
+    validset = torchvision.datasets.CIFAR100(root=data_path, train=False, download=False, transform=transforms.ToTensor())
 
     if cifar100_mean is None:
         data_mean, data_std = _get_meanstd(trainset)
@@ -113,8 +113,8 @@ def _build_cifar100(data_path, augmentations=True, normalize=True):
 def _build_mnist(data_path, augmentations=True, normalize=True):
     """Define MNIST with everything considered."""
     # Load data
-    trainset = torchvision.datasets.MNIST(root=data_path, train=True, download=True, transform=transforms.ToTensor())
-    validset = torchvision.datasets.MNIST(root=data_path, train=False, download=True, transform=transforms.ToTensor())
+    trainset = torchvision.datasets.MNIST(root=data_path, train=True, download=False, transform=transforms.ToTensor())
+    validset = torchvision.datasets.MNIST(root=data_path, train=False, download=False, transform=transforms.ToTensor())
 
     if mnist_mean is None:
         cc = torch.cat([trainset[i][0].reshape(-1) for i in range(len(trainset))], dim=0)
@@ -142,8 +142,8 @@ def _build_mnist(data_path, augmentations=True, normalize=True):
 def _build_mnist_gray(data_path, augmentations=True, normalize=True):
     """Define MNIST with everything considered."""
     # Load data
-    trainset = torchvision.datasets.MNIST(root=data_path, train=True, download=True, transform=transforms.ToTensor())
-    validset = torchvision.datasets.MNIST(root=data_path, train=False, download=True, transform=transforms.ToTensor())
+    trainset = torchvision.datasets.MNIST(root=data_path, train=True, download=False, transform=transforms.ToTensor())
+    validset = torchvision.datasets.MNIST(root=data_path, train=False, download=False, transform=transforms.ToTensor())
 
     if mnist_mean is None:
         cc = torch.cat([trainset[i][0].reshape(-1) for i in range(len(trainset))], dim=0)
