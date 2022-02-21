@@ -324,6 +324,8 @@ def loss_steps(model, inputs, labels, loss_fn=torch.nn.CrossEntropyLoss(), lr=1e
 
 def reconstruction_costs(gradients, input_gradient, cost_fn='l2', indices='def', weights='equal'):
     """Input gradient is given data."""
+    input_gradient = input_gradient[:-2] # Fishing Data ignore last layer
+
     if isinstance(indices, list):
         pass
     elif indices == 'def':
