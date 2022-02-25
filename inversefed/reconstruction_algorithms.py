@@ -59,7 +59,7 @@ class GradientReconstructor():
         self.loss_fn = torch.nn.CrossEntropyLoss(reduction='mean')
         self.iDLG = True
 
-    def reconstruct(self, input_data, labels, img_shape=(3, 32, 32), dryrun=False, eval=True, tol=None):
+    def reconstruct(self, input_data, feat_act, labels, img_shape=(3, 32, 32), dryrun=False, eval=True, tol=None):
         """Reconstruct image from gradient."""
         start_time = time.time()
         if eval:
@@ -91,7 +91,7 @@ class GradientReconstructor():
 
         try:
             for trial in range(self.config['restarts']):
-                x_trial, labels = self._run_trial(x[trial], input_data, labels, dryrun=dryrun)
+                x_trial, labels = self._run_trial(x[trial], input_data, feat_act, labels, dryrun=dryrun)
                 # Finalize
                 scores[trial] = self._score_trial(x_trial, input_data, labels)
                 x[trial] = x_trial
@@ -127,7 +127,7 @@ class GradientReconstructor():
         else:
             raise ValueError()
 
-    def _run_trial(self, x_trial, input_data, labels, dryrun=False):
+    def _run_trial(self, x_trial, input_data, feat_act, labels, dryrun=False):
         x_trial.requires_grad = True
         if self.reconstruct_label:
             output_test = self.model(x_trial)
@@ -160,7 +160,7 @@ class GradientReconstructor():
                                                                          max_iterations // 1.142], gamma=0.1)   # 3/8 5/8 7/8
         try:
             for iteration in range(max_iterations):
-                closure = self._gradient_closure(optimizer, x_trial, input_data, labels)
+                closure = self._gradient_closure(optimizer, x_trial, input_data, feat_act, labels)
                 rec_loss = optimizer.step(closure)
                 if self.config['lr_decay']:
                     scheduler.step()
@@ -188,14 +188,19 @@ class GradientReconstructor():
             pass
         return x_trial.detach(), labels
 
-    def _gradient_closure(self, optimizer, x_trial, input_gradient, label):
+    def _gradient_closure(self, optimizer, x_trial, input_gradient, feat_act, label):
 
         def closure():
+            feat_dummy = [] # store feature activation of penultimate layer
+            def get_act(self, input, output):
+                feat_dummy.append(input)
+            self.model.fc.register_forward_hook(get_act)
+
             optimizer.zero_grad()
             self.model.zero_grad()
             loss = self.loss_fn(self.model(x_trial), label)
             gradient = torch.autograd.grad(loss, self.model.parameters(), create_graph=True)
-            rec_loss = reconstruction_costs([gradient], input_gradient,
+            rec_loss = reconstruction_costs([gradient], input_gradient, feat_dummy, feat_act,
                                             cost_fn=self.config['cost_fn'], indices=self.config['indices'],
                                             weights=self.config['weights'])
 
@@ -322,7 +327,7 @@ def loss_steps(model, inputs, labels, loss_fn=torch.nn.CrossEntropyLoss(), lr=1e
     return list(patched_model.parameters.values())
 
 
-def reconstruction_costs(gradients, input_gradient, cost_fn='l2', indices='def', weights='equal'):
+def reconstruction_costs(gradients, input_gradient, feat_dummy, feat_act, cost_fn='l2', indices='def', weights='equal'):
     """Input gradient is given data."""
     input_gradient = input_gradient[:-2] # Fishing Data ignore last layer
 
@@ -391,4 +396,7 @@ def reconstruction_costs(gradients, input_gradient, cost_fn='l2', indices='def',
 
         # Accumulate final costs
         total_costs += costs
+        print("before",total_costs)
+        total_costs += ((feat_act-feat_dummy)**2).sum()
+        print("after",total_costs)
     return total_costs / len(gradients)
