@@ -89,9 +89,14 @@ class GradientReconstructor():
             assert labels.shape[0] == self.num_images
             self.reconstruct_label = False
 
+        feat_dummy = [0]  # store feature activation of penultimate layer
+        def get_act(self, input, output):
+            feat_dummy[0] = input
+        self.model.fc.register_forward_hook(get_act)
+
         try:
             for trial in range(self.config['restarts']):
-                x_trial, labels = self._run_trial(x[trial], input_data, feat_act, labels, dryrun=dryrun)
+                x_trial, labels = self._run_trial(x[trial], input_data, feat_dummy, feat_act, labels, dryrun=dryrun)
                 # Finalize
                 scores[trial] = self._score_trial(x_trial, input_data, labels)
                 x[trial] = x_trial
@@ -124,10 +129,12 @@ class GradientReconstructor():
             return (torch.rand((self.config['restarts'], self.num_images, *img_shape), **self.setup) - 0.5) * 2
         elif self.config['init'] == 'zeros':
             return torch.zeros((self.config['restarts'], self.num_images, *img_shape), **self.setup)
+        elif self.config['init'] == 'pattern':
+            return torch.randn((self.config['restarts'], self.num_images, 3,28,28), **self.setup).repeat(1,1,1,8,8)
         else:
             raise ValueError()
 
-    def _run_trial(self, x_trial, input_data, feat_act, labels, dryrun=False):
+    def _run_trial(self, x_trial, input_data, feat_dummy, feat_act, labels, dryrun=False):
         x_trial.requires_grad = True
         if self.reconstruct_label:
             output_test = self.model(x_trial)
@@ -160,7 +167,7 @@ class GradientReconstructor():
                                                                          max_iterations // 1.142], gamma=0.1)   # 3/8 5/8 7/8
         try:
             for iteration in range(max_iterations):
-                closure = self._gradient_closure(optimizer, x_trial, input_data, feat_act, labels)
+                closure = self._gradient_closure(optimizer, x_trial, input_data, feat_dummy, feat_act, labels)
                 rec_loss = optimizer.step(closure)
                 if self.config['lr_decay']:
                     scheduler.step()
@@ -188,14 +195,9 @@ class GradientReconstructor():
             pass
         return x_trial.detach(), labels
 
-    def _gradient_closure(self, optimizer, x_trial, input_gradient, feat_act, label):
+    def _gradient_closure(self, optimizer, x_trial, input_gradient, feat_dummy,feat_act, label):
 
         def closure():
-            feat_dummy = [] # store feature activation of penultimate layer
-            def get_act(self, input, output):
-                feat_dummy.append(input)
-            self.model.fc.register_forward_hook(get_act)
-
             optimizer.zero_grad()
             self.model.zero_grad()
             loss = self.loss_fn(self.model(x_trial), label)
@@ -396,7 +398,8 @@ def reconstruction_costs(gradients, input_gradient, feat_dummy, feat_act, cost_f
 
         # Accumulate final costs
         total_costs += costs
-        print("before",total_costs)
-        total_costs += ((feat_act-feat_dummy)**2).sum()
-        print("after",total_costs)
+        #print("before",total_costs)
+        #total_costs += 0.05*((feat_act[0]-feat_dummy[0][0])**2).sum()
+        total_costs += 10*((feat_act[0] - feat_dummy[0][0]) ** 2).sum()
+        #print("after",total_costs)
     return total_costs / len(gradients)
